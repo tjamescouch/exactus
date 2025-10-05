@@ -78,8 +78,8 @@ kernel void wavelet_step(
   float mix0 = P.W00 * u0 + P.W01 * u1;
   float mix1 = P.W10 * u0 + P.W11 * u1;
 
-  float nonlin0 = P.m2 * u0 + P.lambda_ * (u0*u0*u0) + (u0 * mix0);
-  float nonlin1 = P.m2 * u1 + P.lambda_ * (u1*u1*u1) + (u1 * mix1);
+  float nonlin0 = P.m2 * u0 + P.lambda_ * tanh(u0*u0*u0) + (u0 * mix0);
+  float nonlin1 = P.m2 * u1 + P.lambda_ * tanh(u1*u1*u1) + (u1 * mix1);
 
   float next0 = (1.0f - P.eta) * (prop0 - P.dt * nonlin0);
   float next1 = (1.0f - P.eta) * (prop1 - P.dt * nonlin1);

@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
 
   SimParams P;
   P.width = W; P.height = H;
-  P.dt = 0.1f; P.eta = 0.05f; P.m2 = 0.2f; P.lambda_ = 0.01f;
+  P.dt = 0.05f; P.eta = 0.04f; P.m2 = 0.2f; P.lambda_ = 0.02f;
   P.alpha = {0.6f, 0.3f, 0.15f};
   P.W00 = 0.0f; P.W01 = 0.05f; P.W10 = -0.05f; P.W11 = 0.0f;
 
