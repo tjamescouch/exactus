@@ -39,7 +39,7 @@ The engine operates in two distinct modes depending on the problem scale:
 
 ## 💻 Usage
 
-### 1\. The "Sklearn Killer" (Deep Regression)
+### 1\. Deep Regression
 
 Use the `PolynomialStack` to train a Gradient Boosted Polynomial Network on massive datasets.
 
@@ -91,12 +91,11 @@ This allows for **One-Shot Learning** of complex circuits.
 If you use the Bitwise Engine in your research, please cite:
 
 ```bibtex
-@misc{bitwise2025,
-  author = {James Couch},
-  title = {The Bitwise Engine: Implicit Combinadic Polynomial Networks},
+@misc{exactus2025,
+  author = {Couch, James},
+  title = {Exactus: The Bitwise Engine for Memory-Oblivious Polynomial Networks},
   year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
+  url = {https://github.com/tjamescouch/exactus}
 }
 ```
 
