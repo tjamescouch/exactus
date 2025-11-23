@@ -1,6 +1,4 @@
-Here’s a full drop-in README that’s lean and centered on **algebraic logic reconstruction** while keeping only what’s necessary.
 
-````markdown
 # Exactus — Algebraic Logic Reconstruction on Metal
 
 Exactus recovers Boolean logic from partial truth tables using **low-degree ±1 polynomial models** trained on Apple Silicon (Metal). It extracts **interpretable formulas** (DNF and ANF), validates with exhaustive truth tables, and writes reproducible artifacts.
@@ -183,7 +181,7 @@ If this code or the logic-recovery results help you, please cite:
 
 **Software credits:** Apple Metal; pybind11 for Python bindings.
 
----
+
 
 ## License
 
