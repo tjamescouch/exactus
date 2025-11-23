@@ -16,6 +16,7 @@
 \usepackage{booktabs} % For professional tables
 \usepackage{caption}
 \usepackage{float}
+\usepackage{array} % For table column width
 
 % -------------------------------------------------------------------
 % CONFIGURATION
@@ -57,7 +58,7 @@
 % -------------------------------------------------------------------
 % TITLE
 % -------------------------------------------------------------------
-\title{\textbf{The Bitwise Engine: Breaking the Memory Wall in High-Dimensional Polynomial Networks}}
+\title{\textbf{Exactus: The Bitwise Engine for Differentiable Logic Synthesis}}
 \author{Project mc-network}
 \date{\today}
 
@@ -66,7 +67,7 @@
 \maketitle
 
 \begin{abstract}
-This report details the development of the ``Bitwise Engine,'' a high-performance computing system designed to train Polynomial Neural Networks with billions of parameters on consumer hardware (Apple Silicon). By replacing explicit feature maps with implicit Combinadic Number System calculations, we reduced memory requirements from 42 GB to 20 KB for high-dimensional problems ($D=500, N=4$). The system evolved from a stochastic gradient descent model to a closed-form algebraic solver, capable of synthesizing digital logic circuits (XOR, Adders, 7-Segment Decoders) with 100\% accuracy in milliseconds.
+This report details the final architecture of the **Exactus** engine, demonstrating a novel approach to high-dimensional polynomial computation. By replacing explicit feature maps with implicit **Combinadic Algebra**, the system achieves a memory reduction factor of over $4,000,000\times$. We distinguish between two operating modes: the **Trainer** (for billion-scale regression via stochastic methods) and the **Solver** (for exact logic synthesis via a closed-form algebraic solution). The engine successfully synthesized the logic for a 7-Segment Decoder and is proposed as a foundation for next-generation hardware design automation.
 \end{abstract}
 
 \tableofcontents
@@ -75,61 +76,43 @@ This report details the development of the ``Bitwise Engine,'' a high-performanc
 % -------------------------------------------------------------------
 % SECTION 1
 % -------------------------------------------------------------------
-\section{Introduction: The Memory Wall}
+\section{Introduction: The Memory-Compute Trade-Off}
 
-Standard Polynomial Neural Networks expand an input vector $x \in \mathbb{R}^D$ into a feature space of degree $N$. The number of features $M$ grows combinatorially:
-\begin{equation}
-    M = \binom{D+N-1}{N}
-\end{equation}
+Standard Polynomial Neural Networks face a ``Memory Wall'' due to the combinatorial growth of feature space, $M = \binom{D+N-1}{N}$. This requires storing index maps often exceeding available GPU memory (e.g., $D=500, N=4$ requires $\approx 42$ GB).
 
-\subsection{The Scalability Bottleneck}
-For a modest problem of Dimensions $D=100$ and Degree $N=4$, the feature count is approximately 4.6 million. This is manageable. However, increasing dimensions to $D=500$ results in:
-\[
-    M \approx 2.6 \times 10^9 \quad (\text{2.6 Billion Features})
-\]
-A naive implementation storing a ``Feature Map'' (indices of which inputs to multiply) requires 4 integers per feature.
-\[
-    \text{Memory} = 2.6 \times 10^9 \times 4 \times 4 \text{ bytes} \approx 41.6 \text{ GB}
-\]
-This exceeds the RAM capacity of most consumer devices, creating a ``Memory Wall'' that prevents scaling.
+\subsection{The Bitwise Optimization}
+We trade memory for compute by implementing the **Combinadic Inverse function** directly in the GPU kernel. This allows any linear index $I$ to be instantly decoded into its unique monomial component $(c_1, \dots, c_N)$ without memory lookup. The system operates on a memory footprint of just the weight vector and a small Pascal's Triangle (Combinations) lookup table ($\approx 20$ KB).
 
-\section{Methodology: The Bitwise Optimization}
+\subsection{Modes of Operation}
+The final architecture operates in two distinct tiers, defined by the computational cost threshold ($M \approx 45,000$):
+\begin{enumerate}
+    \item \textbf{Trainer Mode (Stochastic):} Uses Gradient Descent with sparse updates for high-dimensional, noisy data ($M > 45,000$).
+    \item \textbf{Solver Mode (Algebraic):} Uses a closed-form solution for small, deterministic logic tasks ($M < 45,000$).
+\end{enumerate}
 
-To break the Memory Wall, we eliminated the Feature Map entirely. Instead of looking up indices from RAM, we calculate them on-the-fly using the \textbf{Combinadic Number System}.
+% -------------------------------------------------------------------
+% SECTION 2
+% -------------------------------------------------------------------
+\section{The Combinadic Engine and GPU Implementation}
 
 \subsection{Mathematical Foundation}
-Any integer $I$ can be uniquely represented as a sum of binomial coefficients:
+The core mechanism is the algebraic identity used to decode the index $I$:
 \begin{equation}
     I = \binom{c_N}{N} + \binom{c_{N-1}}{N-1} + \dots + \binom{c_1}{1}
 \end{equation}
 where $c_N > c_{N-1} > \dots > c_1 \ge 0$. These coefficients $c_i$ map directly to the indices of the input vector $X$ required to form the monomial term.
 
-\subsection{The Pascal Triangle Buffer}
-Instead of storing a 42 GB map, we store a flattened Pascal's Triangle (combinations table) in constant GPU memory.
+\subsection{Performance and Optimization}
+The system was iteratively optimized to eliminate CPU overhead:
 \begin{itemize}
-    \item \textbf{Dimensions:} $512 \times 5$ (for $D=500, N=4$)
-    \item \textbf{Size:} $\approx 10 \text{ KB}$
+    \item \textbf{Memory:} Feature Map replaced by 20 KB Pascal Table ($\mathbf{4,000,000\times}$ reduction).
+    \item \textbf{Dispatch:} Switched from $N_{samples}$ synchronous calls to a **Single Dispatch** per epoch, processing the entire dataset in parallel.
+    \item \textbf{Compute:} The slow $O(D)$ linear search for combinadic inversion was replaced by an $O(\log D)$ **Binary Search** (or $O(1)$ Lookup Table for dense models).
 \end{itemize}
-This represents a memory reduction factor of $\mathbf{4,000,000\times}$.
 
-% -------------------------------------------------------------------
-% SECTION 2
-% -------------------------------------------------------------------
-\section{System Architecture}
-
-The engine is built as a hybrid high-performance pipeline:
-\begin{enumerate}
-    \item \textbf{Core Kernel (Metal Shading Language):} Executes massively parallel compute on the GPU.
-    \item \textbf{Host Driver (C++/Objective-C++):} Manages persistent GPU memory and command dispatch.
-    \item \textbf{Interface (Pybind11):} Exposes zero-copy NumPy arrays to Python.
-\end{enumerate}
-
-\subsection{Metal Kernel Implementation}
-The core innovation is the \texttt{think\_kernel} which generates features procedurally. Below is the optimized Binary Search implementation used to invert the Combinadic index.
-
-\begin{lstlisting}[language=C++, caption=Implicit Index Generation Kernel]
-// Metal Shader Snippet
-void get_monomial_indices(uint linear_idx, uint degree, uint max_d,
+\begin{lstlisting}[language=C++, caption=Optimized Combinadic Index Generation (Binary Search)]
+// Metal Shader Snippet: get_monomial_indices_math
+void get_monomial_indices_math(uint linear_idx, uint degree, uint max_d,
                           constant uint* pascal_table, 
                           thread uint* out_indices) {
     uint remainder = linear_idx;
@@ -140,7 +123,7 @@ void get_monomial_indices(uint linear_idx, uint degree, uint max_d,
         int high = max_d + k;
         int c = low;
         
-        while (low <= high) {
+        while (low <= high) { 
             int mid = low + (high - low) / 2;
             uint val = nCr(mid, k, pascal_table); // Lookup
             if (val <= remainder) {
@@ -150,11 +133,20 @@ void get_monomial_indices(uint linear_idx, uint degree, uint max_d,
                 high = mid - 1;
             }
         }
-        out_indices[k-1] = c - (k - 1); 
+        out_indices[k-1] = c - (k - 1); // Map back to monomial index
         remainder -= nCr(c, k, pascal_table);
     }
 }
 \end{lstlisting}
+
+\section{System Architecture}
+
+The engine is built as a hybrid high-performance pipeline:
+\begin{enumerate}
+    \item \textbf{Core Kernel (Metal Shading Language):} Executes massively parallel compute on the GPU.
+    \item \textbf{Host Driver (C++/Objective-C++):} Manages persistent GPU memory and command dispatch.
+    \item \textbf{Interface (Pybind11):} Exposes zero-copy NumPy arrays to Python.
+\end{enumerate}
 
 \section{Optimization Pipeline}
 
@@ -176,7 +168,7 @@ We moved the training loop entirely to the GPU. The CPU issues a single command 
 \subsection{Phase 3: The Algebraic Solver}
 For Logic Synthesis tasks, we replaced Gradient Descent with a direct Closed-Form Solution using Least Squares:
 \[
-    w = (H^T H)^{-1} H^T y
+    w = (H^T H + \alpha I)^{-1} H^T y
 \]
 The GPU generates the Feature Matrix $H$ instantly, and the CPU solves the linear system. This allows for 100\% accuracy in a single step.
 
@@ -189,12 +181,14 @@ The GPU generates the Feature Matrix $H$ instantly, and the CPU solves the linea
 We benchmarked the engine on the standard California Housing dataset ($N=20,640$).
 \begin{table}[H]
 \centering
-\begin{tabular}{@{}lccc@{}}
+\begin{tabular}{lccc} % Corrected column definition
 \toprule
-\textbf{Architecture} & \textbf{MAE (Error)} & \textbf{Time} & \textbf{Parameters} \\ \midrule
+\textbf{Architecture} & \textbf{MAE (Error)} & \textbf{Time} & \textbf{Parameters} \\
+\midrule
 Baseline (Linear) & 0.96 & 0.01s & 9 \\
 Single Polynomial & 0.66 & 0.50s & 495 \\
-\textbf{Deep Stack (10-Layer)} & \textbf{0.49} & \textbf{1.80s} & \textbf{4,950} \\ \bottomrule
+\textbf{Deep Stack (10-Layer)} & \textbf{0.49} & \textbf{1.80s} & \textbf{4,950} \\ 
+\bottomrule
 \end{tabular}
 \caption{Regression performance comparing architectures.}
 \end{table}
@@ -228,13 +222,14 @@ A complex non-linear mapping of 4 bits to 7 visual segments.
           ... \\
           F | 1 1 1 1 | aefg    \\
     \end{minipage}}
-    \caption{Output of the trained 7-Segment Decoder.}
+    \caption{Output of the trained 7-Segment Hex Decoder.}
 \end{figure}
+
 
 \section{Conclusion}
 
-The Bitwise Engine demonstrates that the Memory Wall in high-dimensional computing can be overcome by trading storage for compute. By utilizing Combinadics, we successfully trained models with 2.6 Billion parameters on a laptop GPU.
+The Exactus Engine demonstrates that the Memory Wall in PNNs can be overcome by trading storage for compute. By utilizing Combinadics, we successfully trained models with 2.6 Billion parameters on a laptop GPU.
 
-Furthermore, the system's ability to synthesize exact boolean logic suggests a new paradigm for \textbf{``Differentiable Hardware Design,''} where FPGA configurations can be learned from data rather than manually programmed.
+The system's ability to synthesize exact boolean logic suggests a new paradigm for \textbf{Differentiable Hardware Design}, where FPGA configurations can be learned from data rather than manually programmed.
 
 \end{document}
