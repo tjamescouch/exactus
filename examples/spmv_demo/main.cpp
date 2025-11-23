@@ -7,8 +7,9 @@
 #include <random>
 #include <algorithm>
 #include <chrono>
+#include <iomanip>
 
-// --- UPDATED FORWARD DECLARATION ---
+// --- FORWARD DECLARATION ---
 namespace metalsp {
     void mc_network_process_step(
         const std::vector<float>& x,
@@ -17,7 +18,7 @@ namespace metalsp {
         float learning_rate,
         std::vector<uint32_t>& update_indices,
         const std::vector<uint32_t>& pascal_table,
-        bool sync_weights // <--- New Flag
+        bool sync_weights 
     );
     extern std::vector<float> debug_output_host;
 }
@@ -62,7 +63,6 @@ std::vector<uint32_t> sample_indices(uint32_t M, uint32_t m) {
 
 int main() {
     try {
-        // --- CONFIGURATION ---
         const uint32_t D = 500; 
         const uint32_t N = 4;   
         
@@ -70,15 +70,11 @@ int main() {
         if (M_long > 4294967295) throw std::overflow_error("M exceeds uint32 limit!");
         uint32_t M = static_cast<uint32_t>(M_long);
 
-        // --- SPEED TUNING ---
-        const uint32_t m_samples = 100000; 
-        
-        // Aggressive LR for rapid convergence
-        const float LEARNING_RATE = 5.0e-7f; 
-        
-        const int NUM_STEPS = 50;
+        const uint32_t m_samples = 1000000; 
+        const float INITIAL_LR = 5.0e-7f; 
+        const int NUM_STEPS = 100;
 
-        std::cout << "--- Bitwise Monte Carlo (PERSISTENT GPU MODE) ---\n";
+        std::cout << "--- Bitwise Monte Carlo (Final Exam) ---\n";
         std::cout << "Dims: D=" << D << ", N=" << N << "\n";
         std::cout << "Features: " << M << " (2.6 Billion)\n";
 
@@ -87,51 +83,76 @@ int main() {
         input_x[0] = 2.0f; input_x[1] = 3.0f; input_x[2] = 1.0f; 
         float target_y = 21.6f; 
         
-        std::cout << "Allocating Host Weights (10GB)... ";
+        std::cout << "Allocating Weights (10GB)... ";
         std::cout.flush();
         std::vector<float> coefficients(M, 0.0f);
-        std::cout << "Done.\n";
+        std::cout << "Done.\n\n";
 
-        std::cout << "Starting Training Loop...\n\n";
-
+        float current_lr = INITIAL_LR;
         double total_gpu_time = 0.0;
 
+        // --- TRAINING LOOP ---
         for (int step = 1; step <= NUM_STEPS; ++step) {
+            // Adjusted Annealing for 100 steps
+            if (step == 30) { // Give it 30 steps to climb
+                current_lr = INITIAL_LR * 0.1f;
+                std::cout << " [System] Learning Rate Decayed to " << std::scientific << current_lr << std::defaultfloat << "\n";
+            }
+            if (step == 70) { // Fine tuning late in the game
+                current_lr = INITIAL_LR * 0.01f;
+                std::cout << " [System] Learning Rate Decayed to " << std::scientific << current_lr << std::defaultfloat << "\n";
+            }
+
             std::vector<uint32_t> update_indices = sample_indices(M, m_samples);
             
             auto start = std::chrono::high_resolution_clock::now();
 
-            // CALL WITH SYNC = FALSE
-            // We only send indices. Weights stay on GPU.
             metalsp::mc_network_process_step(
                 input_x, target_y, coefficients, 
-                LEARNING_RATE, update_indices, pascal_table,
-                false // <--- DO NOT DOWNLOAD WEIGHTS
+                current_lr, update_indices, pascal_table,
+                false 
             );
 
             auto end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double, std::milli> ms_double = end - start;
             
-            // Exclude first step from average (it includes the 10GB upload)
             if (step > 1) total_gpu_time += ms_double.count();
 
             if (step % 5 == 0 || step == 1) {
                 float y_hat = metalsp::debug_output_host[0];
-                std::cout << "Step " << step 
-                          << " | Time: " << ms_double.count() << " ms"
-                          << " | y_hat: " << y_hat 
+                std::cout << "Step " << std::setw(2) << step 
+                          << " | Time: " << std::fixed << std::setprecision(2) << ms_double.count() << " ms"
+                          << " | y_hat (Est): " << std::setprecision(4) << y_hat 
                           << " | Error: " << (y_hat - target_y) << "\n";
             }
         }
 
-        std::cout << "\n--- Results ---\n";
-        std::cout << "Avg Time (excluding init): " << total_gpu_time / (NUM_STEPS - 1) << " ms\n";
+        // --- FINAL EXAM: HIGH-FIDELITY VALIDATION ---
+        std::cout << "\n[System] Running High-Fidelity Validation (10M Samples)...\n";
         
-        // Throughput
-        double ops = (double)m_samples * 2.0; 
-        double avg_time = total_gpu_time / (NUM_STEPS - 1);
-        double throughput = (ops / (avg_time / 1000.0)) / 1e6; 
-        std::cout << "Throughput: " << throughput << " MOps/sec\n";
+        // 1. Increase sample size by 100x for the test
+        uint32_t validation_m = 10000000; 
+        std::vector<uint32_t> val_indices = sample_indices(M, validation_m);
+        
+        // 2. Run with LR = 0.0 (No updates, just inference)
+        auto v_start = std::chrono::high_resolution_clock::now();
+        metalsp::mc_network_process_step(
+            input_x, target_y, coefficients, 
+            0.0f, // Zero Learning Rate
+            val_indices, pascal_table,
+            false 
+        );
+        auto v_end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> v_ms = v_end - v_start;
+
+        float final_y_hat = metalsp::debug_output_host[0];
+
+        std::cout << "Validation Time: " << v_ms.count() << " ms\n";
+        std::cout << "------------------------------------------------\n";
+        std::cout << "TARGET      : " << target_y << "\n";
+        std::cout << "PREDICTION  : " << final_y_hat << "\n";
+        std::cout << "FINAL ERROR : " << (final_y_hat - target_y) << "\n";
+        std::cout << "------------------------------------------------\n";
 
     } catch (const std::exception& e) {
         std::cerr << "\n[FATAL ERROR]: " << e.what() << "\n";
