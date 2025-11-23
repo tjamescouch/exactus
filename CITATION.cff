@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+title: "Exactus: Algebraic Logic Reconstruction on Metal"
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Couch
+    given-names: James
+version: "2025.0"
+doi: ""
+date-released: "2025-11-23"
+repository-code: "https://github.com/tjamescouch/exactus"
+preferred-citation:
+  type: misc
+  authors:
+    - family-names: Couch
+      given-names: James
+  title: "Exactus: Algebraic Logic Reconstruction on Metal"
+  year: 2025
+  url: "https://github.com/tjamescouch/exactus"
