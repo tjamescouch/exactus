@@ -1,7 +1,7 @@
 
 # Exactus — Algebraic Logic Reconstruction on Metal
 
-Exactus recovers Boolean logic from partial truth tables using **low-degree ±1 polynomial models** trained on Apple Silicon (Metal). It extracts **interpretable formulas** (DNF and ANF), validates with exhaustive truth tables, and writes reproducible artifacts.
+Exactus recovers Boolean logic from partial truth tables using **low-degree ±1 polynomial models** trained on Apple Silicon (Metal). It extracts **interpretable formulas** (DNF and ANF), validates with exhaustive truth tables, and writes reproducible artifacts. Research notebook / alpha—logic-recovery results are stable; scale experiments are WIP.
 
 > Core idea: encode inputs/labels in {−1,+1}; many gates become **linear or low-degree polynomials**. Fit tiny models, apply **symmetry-aware augmentation**, and read back logic.
 
