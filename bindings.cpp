@@ -1,47 +1,74 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 #include "metalsp/network_types.hpp"
 
 namespace py = pybind11;
 
 namespace metalsp {
-    void mc_network_process_step(const std::vector<float>& x, float y, std::vector<float>& coefficients, float learning_rate, std::vector<uint32_t>& update_indices, const std::vector<uint32_t>& pascal_table, bool sync_weights);
-    
-    std::vector<float> mc_network_fit(
-        const std::vector<float>& X_flat, const std::vector<float>& y,
-        const std::vector<float>& coefficients, 
-        float learning_rate, int epochs, int batch_size, int degree, // <--- Added degree
-        py::array_t<uint32_t>& pascal_table
-    );
+  std::vector<float> mc_network_fit(
+    const std::vector<float>& X_flat,
+    const std::vector<float>& y,
+    const std::vector<float>& coefficients_in,
+    float learning_rate,
+    int   epochs,
+    int   batch_size,
+    int   degree,
+    py::array_t<uint32_t>& pascal_table_np);
 
-    std::vector<float> mc_network_predict(
-        const std::vector<float>& X_flat, 
-        const std::vector<float>& coefficients,
-        int input_dim, // <--- Added
-        int degree,    // <--- Added
-        py::array_t<uint32_t>& pascal_table
-    );
+  std::vector<float> mc_network_predict(
+    const std::vector<float>& X_flat,
+    const std::vector<float>& coefficients,
+    int input_dim,
+    int degree,
+    py::array_t<uint32_t>& pascal_table_np);
 
-    void free_gpu_memory(); 
-    extern std::vector<float> debug_output_host;
+  void free_gpu_memory();
+  void set_train_hyperparams(float lambda, float gmax);
+
+  extern std::vector<float> debug_output_host;
 }
 
 PYBIND11_MODULE(mc_network, m) {
-    m.doc() = "Bitwise Monte Carlo Network";
-    m.def("process_step", &metalsp::mc_network_process_step);
-    
-    m.def("fit", &metalsp::mc_network_fit, 
-          py::arg("X_flat"), py::arg("y"), py::arg("coefficients"),
-          py::arg("learning_rate"), py::arg("epochs"), py::arg("batch_size"), py::arg("degree"),
-          py::arg("pascal_table")
-    );
+  // Wrap in lambdas so pybind can deduce Func (handles numpy arg cleanly)
+  m.def("fit",
+        [](std::vector<float> X_flat,
+           std::vector<float> y,
+           std::vector<float> coefficients_in,
+           float learning_rate,
+           int   epochs,
+           int   batch_size,
+           int   degree,
+           py::array_t<uint32_t> pascal_table_np) {
+          return metalsp::mc_network_fit(
+              X_flat, y, coefficients_in, learning_rate, epochs, batch_size, degree, pascal_table_np);
+        },
+        py::arg("X_flat"), py::arg("y"), py::arg("coefficients_in"),
+        py::arg("learning_rate"), py::arg("epochs"), py::arg("batch_size"),
+        py::arg("degree"), py::arg("pascal_table_np"));
 
-    m.def("predict", &metalsp::mc_network_predict,
-          py::arg("X_flat"), py::arg("coefficients"), py::arg("input_dim"), py::arg("degree"),
-          py::arg("pascal_table")
-    );
+  m.def("predict",
+        [](std::vector<float> X_flat,
+           std::vector<float> coefficients,
+           int input_dim,
+           int degree,
+           py::array_t<uint32_t> pascal_table_np) {
+          return metalsp::mc_network_predict(
+              X_flat, coefficients, input_dim, degree, pascal_table_np);
+        },
+        py::arg("X_flat"), py::arg("coefficients"),
+        py::arg("input_dim"), py::arg("degree"),
+        py::arg("pascal_table_np"));
 
-    m.def("reset_gpu", &metalsp::free_gpu_memory);
-    m.def("get_debug_output", []() { return metalsp::debug_output_host; });
+  m.def("free_gpu_memory", &metalsp::free_gpu_memory);
+
+  // Expose ridge + clamp knobs; avoid Python keyword conflict by naming lambda_
+  m.def("set_train_hyperparams",
+        [](float lambda_, float gmax) { metalsp::set_train_hyperparams(lambda_, gmax); },
+        py::arg("lambda_"), py::arg("gmax"));
+
+  m.def("debug_output", []() {
+    const py::ssize_t n = static_cast<py::ssize_t>(metalsp::debug_output_host.size());
+    return py::array_t<float>(n, metalsp::debug_output_host.data());
+  });
 }
