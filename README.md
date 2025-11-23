@@ -202,7 +202,7 @@ If this code or the logic‑recovery results help you, please cite:
   author = {Couch, James},
   title  = {Exactus: Algebraic Logic Reconstruction on Metal},
   year   = {2025},
-  howpublished = {\url{https://github.com/tjamescouch/mc-network}}
+  howpublished = {\url{https://github.com/tjamescouch/exactus}}
 }
 ```
 
