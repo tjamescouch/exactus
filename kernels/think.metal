@@ -1,4 +1,4 @@
-// kernels/think.metal
+// kernels/think.metal (STOCHASTIC OPTIMIZATION)
 
 #include <metal_stdlib>
 using namespace metal;
@@ -10,28 +10,69 @@ struct Meta {
     float learning_rate;
 };
 
-inline float get_feature(uint k, const device float *x) {
-    switch (k) {
-        case 0: return 1.0f;
-        case 1: return x[0];
-        case 2: return x[1];
-        case 3: return x[0]*x[0];
-        case 4: return x[1]*x[1];
-        case 5: return x[0]*x[1];
-        default: return 0.0f;
+constant uint PASCAL_COLS = 5; // MAX_N + 1
+
+// --- BITWISE GENERATOR (Same as before) ---
+inline uint nCr(uint n, uint k, constant uint* pascal_table) {
+    return pascal_table[n * PASCAL_COLS + k];
+}
+
+// kernels/think.metal (Binary Search Optimization)
+
+// ... (Includes and nCr helper remain the same) ...
+
+// --- BINARY SEARCH SOLVER ---
+// Replaces Linear Scan. Solves for c in nCr(c, k) <= remainder
+// Complexity: O(log D) instead of O(D)
+void get_monomial_indices(uint linear_idx, uint degree, uint max_d,
+                          constant uint* pascal_table, thread uint* out_indices) {
+    uint remainder = linear_idx;
+    
+    // Upper bound can be tighter, but max_d + degree is safe
+    // Lower bound is always k (since n must be >= k)
+    
+    for (int k = degree; k > 0; k--) {
+        // We want to find the LARGEST 'c' such that nCr(c, k) <= remainder.
+        
+        int low = k; 
+        int high = max_d + k; 
+        if (high >= 512) high = 511; // Clamp to table limits
+        
+        int c = low;
+        
+        // Binary Search
+        while (low <= high) {
+            int mid = low + (high - low) / 2;
+            uint val = nCr(mid, k, pascal_table);
+            
+            if (val <= remainder) {
+                c = mid;      // This 'mid' is a candidate (it fits)
+                low = mid + 1; // Try to find a larger one
+            } else {
+                high = mid - 1; // 'mid' is too big
+            }
+        }
+        
+        // 'c' is now the largest index satisfying the condition
+        out_indices[k-1] = c - (k - 1); 
+        remainder -= nCr(c, k, pascal_table);
     }
 }
 
-inline float forward_pass(const device float *coefficients,
-                          const device float *x,
-                          uint M) {
-    float y_hat = 0.0f;
-    for (uint k = 0; k < M; ++k) {
-        y_hat += coefficients[k] * get_feature(k, x);
+// ... (Rest of the file: compute_feature and think_kernel remain exactly the same) ...
+
+float compute_feature(uint k_idx, uint degree, uint D, 
+                      constant uint* pascal_table, device const float* x) {
+    uint indices[8]; 
+    get_monomial_indices(k_idx, degree, D, pascal_table, indices);
+    float val = 1.0f;
+    for(int i = 0; i < degree; ++i) {
+        val *= x[indices[i]];
     }
-    return y_hat;
+    return val;
 }
 
+// --- STOCHASTIC KERNEL ---
 kernel void think_kernel(
     device float *coefficients              [[buffer(0)]],
     const device float *input_x             [[buffer(1)]],
@@ -39,40 +80,70 @@ kernel void think_kernel(
     const device uint  *update_indices      [[buffer(3)]],
     constant Meta      *meta                [[buffer(4)]],
     device float       *debug_output        [[buffer(5)]],
-    uint tid_tg                               [[thread_position_in_threadgroup]],
-    uint tgid                                  [[threadgroup_position_in_grid]]
+    constant uint      *pascal_table        [[buffer(6)]],
+    uint tid_tg                             [[thread_position_in_threadgroup]],
+    uint tgid                               [[threadgroup_position_in_grid]],
+    uint threadsPerGroup                    [[threads_per_threadgroup]]
 ) {
-    // Share forward-pass results within the threadgroup.
-    threadgroup float tg_y_hat;
+    uint N = 4; 
+    
+    // Shared memory for reduction
+    threadgroup float tg_sum_buffer[64]; // Assumes max 64 threads/group
     threadgroup float tg_loss_grad;
 
-    // --- 1) Forward pass + loss gradient by one lane per threadgroup ---
+    // --- PHASE 1: STOCHASTIC FORWARD PASS ---
+    // All threads compute partial sums of the SAMPLE batch (not the full M)
+    float local_y_part = 0.0f;
+
+    for (uint i = tid_tg; i < meta->m; i += threadsPerGroup) {
+        uint k = update_indices[i];
+        float phi = compute_feature(k, N, meta->D, pascal_table, input_x);
+        local_y_part += coefficients[k] * phi;
+    }
+
+    // Store in shared memory
+    if (tid_tg < 64) tg_sum_buffer[tid_tg] = local_y_part;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    // Parallel Reduction (Simple linear scan by leader for 64 items is fast enough)
     if (tid_tg == 0) {
-        float y_hat = forward_pass(coefficients, input_x, meta->M);
-        float error = y_hat - target_y[0];
-        float loss_gradient = 2.0f * error;
+        float batch_sum = 0.0f;
+        // Sum up results from all threads
+        // (Note: In production, a tree-reduction is faster, but for 64 threads linear is fine)
+        uint active_threads = min(threadsPerGroup, 64u); 
+        for (uint t = 0; t < active_threads; ++t) {
+            batch_sum += tg_sum_buffer[t];
+        }
 
-        tg_y_hat     = y_hat;
-        tg_loss_grad = loss_gradient;
+        // SCALE the sum: (M / m) * batch_sum
+        // This is the Monte Carlo Estimator
+        float scale_factor = float(meta->M) / float(meta->m);
+        float y_hat_est = batch_sum * scale_factor;
 
-        // Optional: write to device buffer for host inspection
-        if (tgid == 0) {            // only first TG writes, to avoid races if >1 TG
-            debug_output[0] = y_hat;
-            debug_output[1] = loss_gradient;
+        float error = y_hat_est - target_y[0];
+        tg_loss_grad = 2.0f * error;
+
+        // Write debug info
+        if (tgid == 0) {
+            debug_output[0] = y_hat_est;
+            debug_output[1] = tg_loss_grad;
         }
     }
 
-    // Make the threadgroup variables visible to all lanes in this TG
+    // Wait for Leader to compute gradient
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
-    // --- 2) Sparse updates: first m threads in the TG update coefficients ---
-    if (tid_tg < meta->m) {
-        float loss_gradient = tg_loss_grad;
+    // --- PHASE 2: SPARSE UPDATES ---
+    // Re-run the loop to update weights
+    // (We re-compute phi to save shared memory space - ALU is cheap!)
+    float learning_rate = meta->learning_rate;
+    float loss_grad = tg_loss_grad; // Read from shared
 
-        uint k_update = update_indices[tid_tg];
-        float phi_k   = get_feature(k_update, input_x);
-        float grad_ak = loss_gradient * phi_k;
-
-        coefficients[k_update] -= meta->learning_rate * grad_ak;
+    for (uint i = tid_tg; i < meta->m; i += threadsPerGroup) {
+        uint k = update_indices[i];
+        float phi = compute_feature(k, N, meta->D, pascal_table, input_x);
+        
+        // Update
+        coefficients[k] -= learning_rate * loss_grad * phi;
     }
 }
