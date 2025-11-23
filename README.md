@@ -91,12 +91,11 @@ This allows for **One-Shot Learning** of complex circuits.
 If you use the Bitwise Engine in your research, please cite:
 
 ```bibtex
-@misc{bitwise2025,
-  author = {James Couch},
-  title = {The Bitwise Engine: Implicit Combinadic Polynomial Networks},
+@misc{exactus2025,
+  author = {Couch, James},
+  title = {Exactus: The Bitwise Engine for Memory-Oblivious Polynomial Networks},
   year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
+  url = {https://github.com/tjamescouch/exactus}
 }
 ```
 
