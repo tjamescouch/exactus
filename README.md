@@ -1,53 +1,48 @@
+Here’s a full drop-in README that’s lean and centered on **algebraic logic reconstruction** while keeping only what’s necessary.
 
-# Exactus — Bitwise Polynomials on Metal (Logic Recovery + High-D Poly)
+````markdown
+# Exactus — Algebraic Logic Reconstruction on Metal
 
-> **Break the Memory Wall.** Train and analyze sparse polynomial models on Apple Silicon (Metal) with interpretable logic extraction, partial-supervision recovery, and reproducible benchmarks.
+Exactus recovers Boolean logic from partial truth tables using **low-degree ±1 polynomial models** trained on Apple Silicon (Metal). It extracts **interpretable formulas** (DNF and ANF), validates with exhaustive truth tables, and writes reproducible artifacts.
 
-This repo combines two complementary stories:
-
-1. **High-Dimensional Polynomial Engine (Bitwise/Combinadics).** Efficient index decoding and feature generation without materializing huge design matrices (the “memory-oblivious” angle).
-2. **Exact / Near-Exact Logic Recovery from Partial Truth Tables.** Small Boolean blocks (AND/OR/XOR/XNOR/MAJ/MUX) are recovered from a handful of rows using symmetry-aware augmentation and low-degree polynomial fits (K≤2) with a minimal Metal SGD backend.
-
-Your original framing (trainer vs solver, combinadics, algebraic ridge) is preserved; this README adds **concrete scripts, artifacts, and tables** that make the logic-recovery story verifiable at a glance. :contentReference[oaicite:0]{index=0}
+> Core idea: encode inputs/labels in {−1,+1}; many gates become **linear or low-degree polynomials**. Fit tiny models, apply **symmetry-aware augmentation**, and read back logic.
 
 ---
 
 ## Contents
-
 - [Key Results](#key-results)
 - [Quickstart](#quickstart)
-- [Interpretable Formulas (DNF / ANF)](#interpretable-formulas-dnf--anf)
-- [Partial Supervision: Data Efficiency](#partial-supervision-data-efficiency)
+- [Logic Extraction (DNF / ANF)](#logic-extraction-dnf--anf)
+- [Partial Supervision (Data Efficiency)](#partial-supervision-data-efficiency)
 - [How It Works](#how-it-works)
-- [Scaling & Performance](#scaling--performance)
 - [Reproducibility & Artifacts](#reproducibility--artifacts)
-- [Roadmap](#roadmap)
-- [Cite This Work](#cite-this-work)
+- [Roadmap (Logic-first)](#roadmap-logicfirst)
+- [Cite](#cite)
 - [License](#license)
 
 ---
 
 ## Key Results
 
-Run the one-shot benchmark to reproduce the table and write CSV/JSON artifacts:
+Run the benchmark; it prints accuracy at different label coverages `p` and saves artifacts.
 
 ```bash
+# build Metal core + py module
 mkdir -p build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
 cd ..
 
+# logic recovery benchmark (writes to results/)
 python bench_logic.py --out results --timestamp 1
 ````
 
-You should see outputs of this shape (representative):
+Representative output:
 
 ```
 == AND2 (n=2, K=2) ==
   p=10%  train_rows=2→aug= 4  acc_full=100.0%  bAcc=100.0%
-  p=25%  train_rows=2→aug= 4  acc_full=100.0%  bAcc=100.0%
-  p=50%  train_rows=2→aug= 4  acc_full=100.0%  bAcc=100.0%
-  p=75%  train_rows=3→aug= 6  acc_full=100.0%  bAcc=100.0%
+  ...
 
 == OR2 (n=2, K=2) ==
   p=10%  train_rows=2→aug= 4  acc_full=100.0%  bAcc=100.0%
@@ -62,27 +57,23 @@ You should see outputs of this shape (representative):
   ...
 
 == MAJ3 (n=3, K=1) ==
-  p=10%  train_rows=2→aug=12  acc_full= 50.0%  bAcc= 50.0%
   p=50%  train_rows=4→aug=24  acc_full=100.0%  bAcc=100.0%
 
 == MUX3 (n=3, K=2) ==
-  p=10%  train_rows=2→aug= 4  acc_full= 75.0%  bAcc= 75.0%
   p=75%  train_rows=6→aug=12  acc_full=100.0%  bAcc=100.0%
 ```
 
 **Takeaways**
 
-* **Exact 100% recovery** for AND/OR/XOR/XNOR at degree ≤2 using symmetry-aware augmentation, from as few as **2 distinct rows**.
-* **MAJ3** is linearly separable in ±1 with bias (K=1): hits 100% once training coverage is adequate (≥50%).
-* **MUX3** requires **degree-2** interactions (selector × payload). With rank-aware sampling and label-preserving augmentation, it reaches 100%.
-
-Artifacts (CSV/JSON) are saved in `results/`. See [Reproducibility](#reproducibility--artifacts).
+* **AND/OR/XOR/XNOR:** 100% exact recovery at **degree ≤ 2**, from **2 labeled rows** + augmentation.
+* **MAJ3:** linear with bias in ±1; reaches 100% once augmented coverage is adequate.
+* **MUX3:** needs **degree-2 selector×payload** terms; rank-aware sampling + label-preserving aug hits 100%.
 
 ---
 
 ## Quickstart
 
-### Build core + Python module
+### Build
 
 ```bash
 mkdir -p build && cd build
@@ -91,113 +82,106 @@ make -j
 cd ..
 ```
 
-### Benchmark logic recovery
+### Benchmarks
 
 ```bash
+# logic recovery table
 python bench_logic.py --out results --timestamp 1
+
+# human-readable checks
+python boolean_validate.py            # prints DNF-like minimal terms
+python boolean_validate_parity.py     # prints ANF (⊕ form)
 ```
 
-### Summarize to Markdown table
+### Optional: teacher recovery sanity (tiny real-valued poly)
 
 ```bash
-python scripts/summarize_results.py --dir results > RESULTS_TABLE.md
-```
-
-### Sanity checks (human-readable terms)
-
-```bash
-python boolean_validate.py            # DNF-like inspection
-python boolean_validate_parity.py     # ANF / parity form
+python benchmark_solver.py
+python plot_teacher_recovery.py --csv results/teacher_recovery.csv \
+  --out results/teacher_recovery_plot.png
 ```
 
 ---
 
-## Interpretable Formulas (DNF / ANF)
+## Logic Extraction (DNF / ANF)
 
-* **DNF-style** extraction (bias/linear/quadratic terms) is printed by `boolean_validate.py`.
-  Examples:
+**DNF-style** (from `boolean_validate.py`)
 
-  * `AND2` → minimal DNF: `x0*x1`
-  * `NOR2` → minimal DNF: `¬x0*¬x1`
-  * `MUX3` (selector `s`, payloads `a,b`) → terms like `¬s*a` and `s*b` appear at degree-2.
+* `AND2` → minimal DNF: `x0 * x1`
+* `NOR2` → minimal DNF: `¬x0 * ¬x1`
+* `MUX3(s,a,b)` → minimal DNF: `¬s*a` and `s*b` (appears via degree-2 terms)
 
-* **ANF (algebraic normal form / XOR-polynomial)** is printed by `boolean_validate_parity.py`.
-  Examples:
+**ANF / parity** (from `boolean_validate_parity.py`)
 
-  * `XOR2` → `x0 ⊕ x1`
-  * `XNOR2` → `1 ⊕ x0 ⊕ x1`
-  * `PAR3` → `x0 ⊕ x1 ⊕ x2`
+* `XOR2` → `x0 ⊕ x1`
+* `XNOR2` → `1 ⊕ x0 ⊕ x1`
+* `PAR3` → `x0 ⊕ x1 ⊕ x2`
 
-These scripts use the same Metal-accelerated core but present the result in logic-friendly algebra.
+Both scripts use the same fitted coefficients, but display them in logic-friendly bases.
 
 ---
 
-## Partial Supervision: Data Efficiency
+## Partial Supervision (Data Efficiency)
 
-`bench_logic.py` evaluates **fractional coverage** `p ∈ {10%, 25%, 50%, 75%}` with **equivariant augmentation**:
+`bench_logic.py` evaluates fractional coverage `p ∈ {10%, 25%, 50%, 75%}` with **equivariant augmentation**:
 
-* **Permutations** (e.g., swap inputs for symmetric gates),
-* **Global flips** for parity-invariant tasks (XOR/XNOR),
-* **Task-aware flips** for `MUX3`: `(s,a,b) → (−s, b, a)` preserves the label in ±1 encoding and injects the right cross-terms.
+* **Permutations** for symmetric gates (e.g., swap inputs).
+* **Global flips** for parity-invariant tasks (XOR/XNOR).
+* **MUX3 label-preserving aug**: `(s,a,b) → (−s, b, a)` in ±1 keeps the label and injects the correct cross-terms.
 
-This turns a tiny set of labeled rows into a full-rank, informative training set **without** hallucinating labels.
+This converts a few labeled rows into an informative, full-rank training set **without fabricated labels**.
 
 ---
 
 ## How It Works
 
-* **±1 Encoding.** Inputs and labels are mapped to {−1, +1}. Many Boolean functions linearize or become low-degree polynomials in this domain.
-* **Low-Degree Polynomial Stack.** Fit degrees in a schedule (e.g., `[0,1,2]`) with residual stacking: solve bias first, then add linear, then quadratic.
-* **Metal Back-End (SGD).** Tiny stepper with gradient clipping and small L2; fast on Apple Silicon.
-* **Bitwise/Combinadics (for scale).** For large D/degree, we use combinadic tricks to **decode monomial indices on-device** without materializing the feature map (the “memory-oblivious” approach). Algebraic ridge (closed form) is also available for smaller M.
+* **±1 encoding.** Map bits/labels to {−1,+1}. Several Boolean functions become linear/low-degree polynomials.
+* **Low-degree stack.** Fit degree schedule `[0,1,2]` (or `[0,1]` for MAJ3) by residual stacking: bias → linear → quadratic.
+* **Tiny SGD on Metal.** Small stepper with gradient clipping + mild L2. Fast enough for these blocks; deterministic and reproducible.
+* **Extraction.** Coefficients are thresholded/grouped to print DNF or ANF terms; verification is by exhaustive truth tables.
 
----
-
-## Scaling & Performance
-
-Two operating modes:
-
-| Mode        | Method                                           |                               Scale | Use Cases                                |
-| ----------- | ------------------------------------------------ | ----------------------------------: | ---------------------------------------- |
-| **Trainer** | SGD (Metal) with combinadic decoding             | Up to billions of implicit features | High-D regression, large synthetic tasks |
-| **Solver**  | Algebraic ridge (w=(H^T H + \alpha I)^{-1}H^T y) |         ≤ ~45k features (RAM-bound) | Exact logic/circuits, small blocks       |
-
-Representative times (Apple Silicon) and limits are discussed in your original write-up (preserved conceptually here).
+> High-D “combinadics/bitwise” machinery exists in the repo for larger polynomial problems, but the **logic story** stands alone and is fully verifiable here.
 
 ---
 
 ## Reproducibility & Artifacts
 
-* **Benchmark runner:** `bench_logic.py` → writes `{csv,json}` to `results/logic_bench_*.{csv,json}`
-* **Summary:** `scripts/summarize_results.py` → prints a README-ready table
-* **DNF / ANF:** `boolean_validate.py`, `boolean_validate_parity.py`
-* **One-liner:** `./experiments/run_logic.sh results 1`
+* `bench_logic.py` → `results/logic_bench_*.{csv,json}`
+* `boolean_validate*.py` → prints formulas, also verifies accuracy
+* `benchmark_solver.py` → `results/teacher_recovery.csv`
+* `plot_teacher_recovery.py` → `results/teacher_recovery_plot.png`
 
-Version your `results/` and paste `RESULTS_TABLE.md` into PRs to keep the story verifiable.
+Summarize to a README-ready table:
 
----
-
-## Roadmap
-
-* **Exporters:** minimal **Verilog** / **BLIF** from recovered terms (ANF or DNF).
-* **Multi-bit modules:** ripple adders, small ALUs (compose learned blocks).
-* **GPU-first ridge:** block-wise WHT/ANF pipelines for parity-heavy tasks.
-* **Visualization:** web demo rendering recovered logic and truth tables.
+```bash
+python scripts/summarize_results.py --dir results > RESULTS_TABLE.md
+```
 
 ---
 
-## Cite This Work
+## Roadmap (Logic-first)
+
+* Export learned blocks to **Verilog/BLIF** (from DNF/ANF).
+* Compose blocks: half/full adders, small ALU slices, ripple constructions.
+* Robustness: label noise, adversarial missing rows, conflicting labels.
+* Speed: batched many-gate recovery; multi-block joint fitting.
+
+---
+
+## Cite
+
+If this code or the logic-recovery results help you, please cite:
 
 ```bibtex
 @misc{exactus2025,
   author = {Couch, James},
-  title = {Exactus: Bitwise Polynomial Networks on Metal with Logic Recovery},
-  year = {2025},
+  title  = {Exactus: Algebraic Logic Reconstruction on Metal},
+  year   = {2025},
   howpublished = {\url{https://github.com/tjamescouch/mc-network}}
 }
 ```
 
-(Replace repo URLs/titles with your preferred canonical references if you consolidate.)
+**Software credits:** Apple Metal; pybind11 for Python bindings.
 
 ---
 
@@ -205,6 +189,4 @@ Version your `results/` and paste `RESULTS_TABLE.md` into PRs to keep the story 
 
 MIT (see `LICENSE`).
 
-
-::contentReference[oaicite:1]{index=1}
 ```

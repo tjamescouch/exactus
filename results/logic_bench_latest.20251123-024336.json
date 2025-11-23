@@ -1,0 +1,242 @@
+[
+  {
+    "task": "AND2",
+    "n": 2,
+    "K": 2,
+    "p": 0.1,
+    "k_labeled": 2,
+    "k_aug": 4,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "AND2",
+    "n": 2,
+    "K": 2,
+    "p": 0.25,
+    "k_labeled": 2,
+    "k_aug": 4,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "AND2",
+    "n": 2,
+    "K": 2,
+    "p": 0.5,
+    "k_labeled": 2,
+    "k_aug": 4,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "AND2",
+    "n": 2,
+    "K": 2,
+    "p": 0.75,
+    "k_labeled": 3,
+    "k_aug": 6,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "OR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.1,
+    "k_labeled": 2,
+    "k_aug": 4,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "OR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.25,
+    "k_labeled": 2,
+    "k_aug": 4,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "OR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.5,
+    "k_labeled": 2,
+    "k_aug": 4,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "OR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.75,
+    "k_labeled": 3,
+    "k_aug": 6,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "XOR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.1,
+    "k_labeled": 2,
+    "k_aug": 8,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "XOR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.25,
+    "k_labeled": 2,
+    "k_aug": 8,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "XOR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.5,
+    "k_labeled": 2,
+    "k_aug": 8,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "XOR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.75,
+    "k_labeled": 3,
+    "k_aug": 12,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "XNOR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.1,
+    "k_labeled": 2,
+    "k_aug": 8,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "XNOR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.25,
+    "k_labeled": 2,
+    "k_aug": 8,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "XNOR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.5,
+    "k_labeled": 2,
+    "k_aug": 8,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "XNOR2",
+    "n": 2,
+    "K": 2,
+    "p": 0.75,
+    "k_labeled": 3,
+    "k_aug": 12,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "MAJ3",
+    "n": 3,
+    "K": 1,
+    "p": 0.1,
+    "k_labeled": 2,
+    "k_aug": 12,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "MAJ3",
+    "n": 3,
+    "K": 1,
+    "p": 0.25,
+    "k_labeled": 2,
+    "k_aug": 12,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "MAJ3",
+    "n": 3,
+    "K": 1,
+    "p": 0.5,
+    "k_labeled": 4,
+    "k_aug": 24,
+    "acc": 0.625,
+    "bacc": 0.625
+  },
+  {
+    "task": "MAJ3",
+    "n": 3,
+    "K": 1,
+    "p": 0.75,
+    "k_labeled": 6,
+    "k_aug": 36,
+    "acc": 1.0,
+    "bacc": 1.0
+  },
+  {
+    "task": "MUX3",
+    "n": 3,
+    "K": 2,
+    "p": 0.1,
+    "k_labeled": 2,
+    "k_aug": 4,
+    "acc": 0.0,
+    "bacc": 0.0
+  },
+  {
+    "task": "MUX3",
+    "n": 3,
+    "K": 2,
+    "p": 0.25,
+    "k_labeled": 2,
+    "k_aug": 4,
+    "acc": 0.0,
+    "bacc": 0.0
+  },
+  {
+    "task": "MUX3",
+    "n": 3,
+    "K": 2,
+    "p": 0.5,
+    "k_labeled": 4,
+    "k_aug": 8,
+    "acc": 0.0,
+    "bacc": 0.0
+  },
+  {
+    "task": "MUX3",
+    "n": 3,
+    "K": 2,
+    "p": 0.75,
+    "k_labeled": 6,
+    "k_aug": 12,
+    "acc": 0.75,
+    "bacc": 0.75
+  }
+]
