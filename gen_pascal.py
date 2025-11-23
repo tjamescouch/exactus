@@ -1,9 +1,9 @@
 import struct
 import math
 
-# OPTIMIZED FOR D=500, N=4
-MAX_D = 512 
-MAX_N = 4   
+# UPDATE: Support MNIST (784 dims)
+MAX_D = 800 
+MAX_N = 3   # Limit to Degree 3 to prevent overflow in 32-bit integers
 
 def generate_pascal_bin(filename="pascal.bin"):
     data = []

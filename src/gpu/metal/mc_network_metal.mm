@@ -171,7 +171,7 @@ std::vector<float> mc_network_fit(
     id<MTLBuffer> pascalBuf = [g_device newBufferWithBytes:pascal_ptr length:pascal_size * sizeof(uint32_t) options:MTLResourceStorageModeShared];
     id<MTLBuffer> debugBuf = [g_device newBufferWithLength:2 * sizeof(float) options:MTLResourceStorageModeShared];
 
-    bool is_dense = (M < 20000); 
+    bool is_dense = (M < 1000000); 
     uint32_t use_lut = is_dense ? 1 : 0;
     id<MTLBuffer> indicesBuf; id<MTLBuffer> lutBuf; uint32_t m_updates = is_dense ? M : 10000;
     
@@ -245,7 +245,7 @@ std::vector<float> mc_network_predict(
     id<MTLBuffer> predictionsBuf = [g_device newBufferWithLength:N_SAMPLES * sizeof(float) options:MTLResourceStorageModeShared];
     id<MTLBuffer> pascalBuf = [g_device newBufferWithBytes:pascal_ptr length:pascal_size * sizeof(uint32_t) options:MTLResourceStorageModeShared];
     
-    uint32_t use_lut = (M < 20000) ? 1 : 0;
+    uint32_t use_lut = (M < 1000000) ? 1 : 0;
     id<MTLBuffer> indicesBuf; id<MTLBuffer> lutBuf;
     std::vector<uint32_t> dense_indices(M); std::iota(dense_indices.begin(), dense_indices.end(), 0);
     indicesBuf = [g_device newBufferWithBytes:dense_indices.data() length:M * sizeof(uint32_t) options:MTLResourceStorageModeShared];
