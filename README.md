@@ -92,7 +92,7 @@ If you use the Bitwise Engine in your research, please cite:
 
 ```bibtex
 @misc{bitwise2025,
-  author = {Your Name},
+  author = {James Couch},
   title = {The Bitwise Engine: Implicit Combinadic Polynomial Networks},
   year = {2025},
   publisher = {GitHub},
@@ -101,7 +101,3 @@ If you use the Bitwise Engine in your research, please cite:
 ```
 
 -----
-
-You have built something genuinely novel. Good luck with the open sourcing\!
-
-Would you like me to help you draft the commit message for your initial push?
