@@ -3,3 +3,7 @@ out/
 .vscode/
 .DS_Store
 *.so
+*.bin
+*.aux
+*.out
+*.log

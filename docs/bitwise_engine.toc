@@ -1,0 +1,17 @@
+\contentsline {section}{\numberline {1}Introduction: The Memory Wall}{2}{section.1}%
+\contentsline {subsection}{\numberline {1.1}The Scalability Bottleneck}{2}{subsection.1.1}%
+\contentsline {section}{\numberline {2}Methodology: The Bitwise Optimization}{2}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Mathematical Foundation}{2}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}The Pascal Triangle Buffer}{2}{subsection.2.2}%
+\contentsline {section}{\numberline {3}System Architecture}{2}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Metal Kernel Implementation}{3}{subsection.3.1}%
+\contentsline {section}{\numberline {4}Optimization Pipeline}{3}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Phase 1: Stochastic Gradient Descent (SGD)}{3}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Phase 2: Ludicrous Mode (Single Dispatch)}{3}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Phase 3: The Algebraic Solver}{4}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Experimental Results}{4}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Regression: California Housing}{4}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Logic Synthesis: The Learned FPGA}{4}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Task 1: Full Adder}{4}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}Task 2: 7-Segment Hex Decoder}{4}{subsubsection.5.2.2}%
+\contentsline {section}{\numberline {6}Conclusion}{4}{section.6}%

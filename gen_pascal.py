@@ -1,9 +1,12 @@
 import struct
 import math
 
-# UPDATE: Support MNIST (784 dims)
-MAX_D = 800 
-MAX_N = 3   # Limit to Degree 3 to prevent overflow in 32-bit integers
+# CONFIGURATION FOR LOGIC SYNTHESIS
+# D=4 inputs (Hex), N=4 degree.
+# We set MAX_D=512 because that is the largest size that supports N=4 
+# without overflowing a 32-bit integer (Max ~4.2 Billion).
+MAX_D = 512 
+MAX_N = 4   
 
 def generate_pascal_bin(filename="pascal.bin"):
     data = []
@@ -18,11 +21,12 @@ def generate_pascal_bin(filename="pascal.bin"):
             data.append(val)
 
     try:
+        # 'I' = unsigned int (32-bit)
         with open(filename, 'wb') as f:
             f.write(struct.pack(f'{len(data)}I', *data))
         print(f"✅ Success: Saved {filename} ({len(data) * 4 / 1024:.2f} KB)")
     except struct.error:
-        print("❌ Error: Value exceeded 32-bit integer limit.")
+        print("❌ Error: Value exceeded 32-bit integer limit. Lower MAX_D.")
 
 if __name__ == "__main__":
     generate_pascal_bin()
