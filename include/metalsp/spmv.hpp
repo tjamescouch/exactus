@@ -1,19 +1,17 @@
+// include/metalsp/spmv.hpp
 #pragma once
 
-#include <cstddef>
-#include "metalsp/csr_matrix.hpp"
+#include <cstddef> // for std::size_t
 
 namespace metalsp {
 
-// Reference CPU implementation: y = A * x
-void spmv_cpu(const CsrMatrix& A,
-              const float* x,
-              float* y);
+// New declaration for the GPU pipeline test
+void mc_network_process(const float* in_data,
+                        float* out_data,
+                        std::size_t count);
 
-// Metal GPU implementation (single device).
-// For now this is a stub; implementation will come later.
-void spmv_metal(const CsrMatrix& A,
-                const float* x,
-                float* y);
+// You may keep CsrMatrix and the old spmv declarations for later if you want to reuse them,
+// but they are unnecessary for the current pipeline test.
+// If removed, ensure they are also removed from the CMakeLists.txt build list.
 
 } // namespace metalsp
