@@ -1,65 +1,99 @@
-#include "metalsp/spmv.hpp" // Contains the declaration for mc_network_process
+// examples/spmv_demo/main.cpp
 
+#include "metalsp/network_types.hpp"
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <numeric>
+#include <random>
 #include <algorithm>
-#include <stdexcept>
 
-// Forward declaration of the GPU function (declared in metalsp/spmv.hpp)
+// Function declaration from mc_network_metal.mm (now using the full signature)
 namespace metalsp {
-    void mc_network_process(const float* in_data,
-                            float* out_data,
-                            std::size_t count);
+    void mc_network_process_step(
+        const std::vector<float>& x,
+        float y,
+        std::vector<float>& coefficients,
+        float learning_rate,
+        std::vector<uint32_t>& update_indices
+    );
+}
+
+// Global variable for reproducibility in Monte Carlo sampling
+std::mt19937 rng(42);
+
+// Function to sample 'm' unique indices from 0 to M-1
+std::vector<uint32_t> sample_indices(uint32_t M, uint32_t m) {
+    if (m >= M) {
+        std::vector<uint32_t> indices(M);
+        std::iota(indices.begin(), indices.end(), 0);
+        return indices;
+    }
+    
+    std::vector<uint32_t> pool(M);
+    std::iota(pool.begin(), pool.end(), 0);
+    
+    std::shuffle(pool.begin(), pool.end(), rng);
+    
+    std::vector<uint32_t> sample(pool.begin(), pool.begin() + m);
+    return sample;
 }
 
 int main() {
-    const std::size_t N = 10; // Use a small, fixed size for simple testing
+    std::cout << "--- Monte Carlo Polynomial Network Test (D=2, N=2) ---\n";
 
-    std::cout << "--- mc-network GPU Pipeline Test (Add 1) ---\n";
-    std::cout << "Testing buffer size: " << N << " elements\n";
+    // M=6 coefficients correspond to: [1, x1, x2, x1^2, x2^2, x1*x2]
+    const uint32_t M = 6;
+    const uint32_t m = 2; // Monte Carlo sample size: update only 2 coefficients per step
+    const float LEARNING_RATE = 0.01f;
+    const int NUM_STEPS = 10;
 
-    // 1. Setup Input and Expected Output
-    std::vector<float> input_data(N);
-    std::vector<float> output_data(N, 0.0f);
-    std::vector<float> expected_data(N);
+    // --- Training Data (Simple target function: y = 5*x1 + 3*x2) ---
+    // The network should learn coefficients 1 and 2 (corresponding to x1, x2)
+    std::vector<float> input_x = {2.0f, 3.0f}; // x1=2.0, x2=3.0
+    float target_y = 5.0f * 2.0f + 3.0f * 3.0f; // Target y = 10.0 + 9.0 = 19.0f
 
-    // Initialize input_data: [1.0, 2.0, 3.0, ..., 10.0]
-    for (std::size_t i = 0; i < N; ++i) {
-        input_data[i] = static_cast<float>(i + 1);
-        // Kernel output should be: input + 1.0f
-        expected_data[i] = input_data[i] + 1.0f;
-    }
+    // --- Initialization ---
+    // Initialize all coefficients to a small random value (except the bias a[0]=0)
+    std::vector<float> coefficients(M, 0.1f); 
+    
+    std::cout << "Target function: y = 5*x1 + 3*x2\n";
+    std::cout << "Input x: [" << input_x[0] << ", " << input_x[1] << "], Target y: " << target_y << "\n";
+    std::cout << "Initial coefficients: [";
+    for(float c : coefficients) std::cout << c << ", ";
+    std::cout << "]\n\n";
 
-    // 2. Run GPU Function
-    try {
-        std::cout << "Input data: [";
-        for (std::size_t i = 0; i < N; ++i) std::cout << input_data[i] << (i < N - 1 ? ", " : "");
+    // --- Training Loop ---
+    for (int step = 1; step <= NUM_STEPS; ++step) {
+        // 1. Monte Carlo Sampling
+        std::vector<uint32_t> sampled_indices = sample_indices(M, m);
+        
+        std::cout << "Step " << step << " (Sampled: ";
+        for(uint32_t idx : sampled_indices) std::cout << idx << " ";
+        std::cout << ")\n";
+        
+        // 2. GPU Processing Step
+        try {
+            metalsp::mc_network_process_step(
+                input_x, 
+                target_y, 
+                coefficients, 
+                LEARNING_RATE, 
+                sampled_indices
+            );
+        } catch (const std::exception& e) {
+            std::cerr << "GPU process failed at step " << step << ": " << e.what() << "\n";
+            return 1;
+        }
+
+        // 3. Log current coefficients
+        std::cout << "  > Coeffs: [";
+        for (uint32_t i = 0; i < M; ++i) {
+            std::cout << i << ":" << coefficients[i] << (i < M - 1 ? ", " : "");
+        }
         std::cout << "]\n";
-
-        metalsp::mc_network_process(input_data.data(), output_data.data(), N);
-
-        std::cout << "GPU output: [";
-        for (std::size_t i = 0; i < N; ++i) std::cout << output_data[i] << (i < N - 1 ? ", " : "");
-        std::cout << "]\n";
-
-    } catch (const std::exception& e) {
-        std::cerr << "GPU process failed: " << e.what() << "\n";
-        return 1;
     }
 
-
-    // 3. Verification
-    float max_diff = 0.0f;
-    for (std::size_t i = 0; i < N; ++i) {
-        max_diff = std::max(max_diff, std::abs(output_data[i] - expected_data[i]));
-    }
-
-    if (max_diff < 1e-6) {
-        std::cout << "\n✅ Pipeline test PASSED! Max difference: " << max_diff << "\n";
-        return 0;
-    } else {
-        std::cerr << "\n❌ Pipeline test FAILED! Max difference: " << max_diff << "\n";
-        return 1;
-    }
+    std::cout << "\nTraining finished.\n";
+    return 0;
 }
