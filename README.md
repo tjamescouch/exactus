@@ -39,7 +39,7 @@ The engine operates in two distinct modes depending on the problem scale:
 
 ## 💻 Usage
 
-### 1\. The "Sklearn Killer" (Deep Regression)
+### 1\. Deep Regression
 
 Use the `PolynomialStack` to train a Gradient Boosted Polynomial Network on massive datasets.
 
